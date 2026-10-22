@@ -1,0 +1,27 @@
+{
+  "name": "hoof-shoe-builder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ragamuffin Studios Hoof Shoe Builder - trace a hoof, export a fitted 3D-printable shoe",
+  "scripts": {
+    "build": "node scripts/build-web.js",
+    "sync": "npm run build && npx cap sync"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.2",
+    "@capacitor/camera": "8.2.4",
+    "@capacitor/core": "8.5.2",
+    "@capacitor/filesystem": "8.1.3",
+    "@capacitor/ios": "8.5.2",
+    "@capacitor/share": "8.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.2",
+    "@fontsource/barlow-condensed": "5.2.6",
+    "@fontsource/ibm-plex-mono": "5.2.6",
+    "@fontsource/source-sans-3": "5.2.8",
+    "clipper-lib": "6.4.2",
+    "earcut": "2.2.4",
+    "three": "0.128.0"
+  }
+}

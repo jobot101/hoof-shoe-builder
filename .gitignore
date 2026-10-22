@@ -1,0 +1,9 @@
+node_modules/
+www/
+.DS_Store
+design/out/
+
+# signing material never goes in the repo
+*.keystore
+*.jks
+keystore.properties
