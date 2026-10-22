@@ -1,4 +1,7 @@
-// Hoof shoe geometry. Needs globals ClipperLib and earcut.
+// Shoe geometry: outline -> plate, rim, frog V, holes, toe cuts, logo -> STL.
+import ClipperLib from "clipper-lib";
+import earcut from "earcut";
+
 // All 2D work is in "image frame" millimetres (x right, y down, like the photo).
 var ShoeGeom = (function () {
   var SC = 1000;
@@ -351,4 +354,5 @@ var ShoeGeom = (function () {
 
   return { build: build, mesh: mesh, stl: stl, zip: zip, catmull: catmull, card: card, LOGO: LOGO };
 })();
-if (typeof module !== "undefined") module.exports = ShoeGeom;
+
+export default ShoeGeom;

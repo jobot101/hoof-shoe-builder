@@ -7,3 +7,4 @@ design/out/
 *.keystore
 *.jks
 keystore.properties
+artifact/

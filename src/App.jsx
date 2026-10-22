@@ -1,0 +1,397 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ShoeGeom from "./lib/shoeGeom.js";
+import { TEMPLATE, LOGO_CHOICES, REFERENCE_PRESETS } from "./lib/template.js";
+import { MM_PER_IN, lengthParts, lengthText } from "./lib/units.js";
+import { makeSampleSole } from "./lib/sample.js";
+import { saveFiles, shareFile, canShare, usesNativePicker, pickPhotoNative, isCancel } from "./lib/platform.js";
+import TraceBoard from "./components/TraceBoard.jsx";
+import Preview3D from "./components/Preview3D.jsx";
+
+const MODES = [
+  { id: "scale", label: "Scale" },
+  { id: "outline", label: "Outline" },
+  { id: "frog", label: "Frog" },
+];
+
+function remember(key, value) {
+  try {
+    if (value === undefined) return JSON.parse(localStorage.getItem(key));
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    return null;
+  }
+  return null;
+}
+
+function hintFor(mode, unit) {
+  if (mode === "scale") return "Tap the 0 and 100 mm slots on the reference card, then check the length below. The card has to lie flat against the sole.";
+  if (mode === "frog") return "Tap the frog tip, then each spot where the frog meets the heel. Those three points set the V cut.";
+  return "Tap around the outside edge of the hoof wall, about every " + (unit === "in" ? "¾–1¼ in" : "20–30 mm") + ". A tap between two points slots in there. Drag any point to adjust.";
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("That photo didn't open. Try another one."));
+    img.src = src;
+  });
+}
+
+function printNotes(name, shoe, unit) {
+  const L = (mm) => lengthText(mm, unit);
+  const d = shoe.dims;
+  return [
+    "Shoe Builder export: " + name,
+    "",
+    "STL units are millimetres (Bambu Studio and Handy expect mm).",
+    "Size, toe to heel x widest: " + L(d.length) + "  x  " + L(d.width) + ", toe along +Y",
+    "Plate: " + L(TEMPLATE.plateT),
+    "Rim: " + L(TEMPLATE.rimW) + " wide x " + L(TEMPLATE.rimH) + " tall",
+    "Holes: " + shoe.holeCount + " x " + L(TEMPLATE.holeD) + ". Mirrored for print: yes",
+    "",
+    "Print: flat face on the bed, rim up, no supports.",
+    "Material: TPU 95A-98A. 0.4 mm nozzle, 0.2 mm layers, 5 walls, 50% gyroid, 25-35 mm/s.",
+    "Then heat-form to the hoof and have your farrier check fit and breakover before work.",
+    "",
+    "Phone route: upload the STL to MakerWorld as a private model -> Bambu Handy -> your models -> Print.",
+  ].join("\n");
+}
+
+const CARD_NOTES =
+  "Scale reference card, 116 x 26 x 1.2 mm.\nSlots at 0 and 100 mm (3.937 in), ticks every 10 mm.\n" +
+  "Print in a color that contrasts with the hoof. PLA or PETG, 0.2 mm layers.\n" +
+  "Tape it flat to the sole near the bearing edge, then tap the 0 and 100 slots in the Scale step.";
+
+export default function App() {
+  const [unit, setUnitState] = useState(() => (remember("hsb-unit") === "in" ? "in" : "mm"));
+  const [mode, setModeState] = useState("outline");
+  const [image, setImage] = useState(null);
+  const [badge, setBadge] = useState("SAMPLE HOOF");
+  const [pts, setPts] = useState({ scalePts: [], outline: [], frog: [] });
+  const [sel, setSel] = useState(-1);
+  const [history, setHistory] = useState([]);
+  const [ref, setRef] = useState({ value: "100", unit: "mm" });
+  const [logoPart, setLogoPart] = useState(0);
+  const [fitKey, setFitKey] = useState(0);
+  const [result, setResult] = useState({ shoe: null, tris: null, error: "" });
+  const [photoError, setPhotoError] = useState("");
+  const [saveMsg, setSaveMsg] = useState({ text: "", kind: "" });
+  const dragging = useRef(false);
+  const fileInput = useRef(null);
+
+  // open on the drawn sample sole so the tool shows what it does
+  useEffect(() => {
+    const s = makeSampleSole();
+    loadImage(s.src).then((img) => {
+      setImage(img);
+      setPts({ scalePts: s.scalePts, outline: s.outline, frog: s.frog });
+    });
+  }, []);
+
+  const refMM = useMemo(() => {
+    const v = parseFloat(ref.value);
+    if (!(v > 0)) return 0;
+    return ref.unit === "in" ? v * MM_PER_IN : v;
+  }, [ref]);
+
+  const mmPerPx = useMemo(() => {
+    if (pts.scalePts.length < 2) return 0;
+    const [a, b] = pts.scalePts;
+    const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    return d > 2 && refMM > 0 ? refMM / d : 0;
+  }, [pts.scalePts, refMM]);
+
+  const missing = useMemo(() => {
+    const m = [];
+    if (!mmPerPx) m.push("set the scale (2 points on the reference)");
+    if (pts.outline.length < 6) m.push("trace at least 6 outline points");
+    if (pts.frog.length < 3) m.push("mark the frog tip and both heels");
+    return m;
+  }, [mmPerPx, pts]);
+
+  // rebuild the shoe shortly after anything changes (longer pause while a point is being dragged)
+  useEffect(() => {
+    if (missing.length) { setResult({ shoe: null, tris: null, error: "" }); return; }
+    const t = setTimeout(() => {
+      const sc = (p) => [p[0] * mmPerPx, p[1] * mmPerPx];
+      const P = { ...TEMPLATE, logoPart: Math.max(0, logoPart), logoOn: logoPart >= 0 };
+      try {
+        const shoe = ShoeGeom.build({ outline: pts.outline.map(sc), apex: sc(pts.frog[0]), heelA: sc(pts.frog[1]), heelB: sc(pts.frog[2]) }, P);
+        setResult({ shoe, tris: ShoeGeom.mesh(shoe, P.mirror), error: "" });
+      } catch (e) {
+        setResult({ shoe: null, tris: null, error: e.message || "Couldn't build that outline. Check for crossed points." });
+      }
+    }, dragging.current ? 220 : 60);
+    return () => clearTimeout(t);
+  }, [pts, mmPerPx, logoPart, missing]);
+
+  const snapshot = useCallback(() => {
+    setHistory((h) => [...h.slice(-79), pts]);
+  }, [pts]);
+
+  const undo = () => {
+    if (!history.length) return;
+    setPts(history[history.length - 1]);
+    setHistory(history.slice(0, -1));
+    setSel(-1);
+  };
+
+  const setMode = (m) => { setModeState(m); setSel(-1); };
+
+  const setUnit = (u) => {
+    if (u !== ref.unit) {
+      const v = parseFloat(ref.value);
+      setRef({ value: v > 0 ? String(u === "in" ? +(v / MM_PER_IN).toFixed(3) : +(v * MM_PER_IN).toFixed(1)) : ref.value, unit: u });
+    }
+    setUnitState(u);
+    remember("hsb-unit", u);
+  };
+
+  const nearest = (list, p) => {
+    let b = 0, bd = Infinity;
+    list.forEach((q, i) => { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; b = i; } });
+    return b;
+  };
+
+  const onTap = (p) => {
+    snapshot();
+    const cur = pts;
+    if (mode === "scale") {
+      const s = cur.scalePts.slice();
+      if (s.length < 2) s.push(p); else s[nearest(s, p)] = p;
+      setPts({ ...cur, scalePts: s });
+      return;
+    }
+    if (mode === "frog") {
+      const f = cur.frog.slice();
+      if (f.length < 3) f.push(p); else f[nearest(f, p)] = p;
+      setPts({ ...cur, frog: f });
+      return;
+    }
+    const L = cur.outline.slice();
+    let at = L.length;
+    if (L.length >= 3) {
+      let best = 0, bc = Infinity;
+      for (let i = 0; i < L.length; i++) {
+        const a = L[i], b = L[(i + 1) % L.length];
+        const cost = Math.hypot(p[0] - a[0], p[1] - a[1]) + Math.hypot(p[0] - b[0], p[1] - b[1]) - Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (cost < bc) { bc = cost; best = i; }
+      }
+      at = best + 1;
+    }
+    L.splice(at, 0, p);
+    setPts({ ...cur, outline: L });
+    setSel(at);
+  };
+
+  const listKey = mode === "scale" ? "scalePts" : mode === "frog" ? "frog" : "outline";
+  const onDragStart = () => { snapshot(); dragging.current = true; };
+  const onDrag = (idx, p) => setPts((cur) => {
+    const list = cur[listKey].slice();
+    list[idx] = p;
+    return { ...cur, [listKey]: list };
+  });
+  const onDragEnd = () => { dragging.current = false; setPts((cur) => ({ ...cur })); };
+
+  const removePoint = () => {
+    if (mode !== "outline" || sel < 0) return;
+    snapshot();
+    setPts((cur) => ({ ...cur, outline: cur.outline.filter((_, i) => i !== sel) }));
+    setSel(-1);
+  };
+  const clearStep = () => {
+    snapshot();
+    setPts((cur) => ({ ...cur, [listKey]: [] }));
+    setSel(-1);
+  };
+
+  const startNewPhoto = async (src, label) => {
+    try {
+      const img = await loadImage(src);
+      setImage(img);
+      setBadge(label.slice(0, 28).toUpperCase());
+      setPts({ scalePts: [], outline: [], frog: [] });
+      setHistory([]);
+      setSel(-1);
+      setPhotoError("");
+      setMode("scale");
+    } catch (e) {
+      setPhotoError(e.message);
+    }
+  };
+
+  const onPhotoButton = async (e) => {
+    if (!usesNativePicker) return; // the file input handles it
+    e.preventDefault();
+    try {
+      const src = await pickPhotoNative();
+      if (src) startNewPhoto(src, "Sole photo");
+    } catch (err) {
+      if (!isCancel(err)) setPhotoError("Couldn't open the camera: " + (err.message || err));
+    }
+  };
+
+  const onFile = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) startNewPhoto(URL.createObjectURL(f), f.name);
+    e.target.value = "";
+  };
+
+  const shoeFiles = () => {
+    const { shoe, tris } = result;
+    const name = "shoe_" + Math.round(shoe.dims.length) + "x" + Math.round(shoe.dims.width) + "mm";
+    return [
+      { name: name + ".stl", data: ShoeGeom.stl(tris) },
+      { name: name + "_print-notes.txt", data: printNotes(name, shoe, unit) },
+    ];
+  };
+
+  const onSave = async () => {
+    if (!result.tris) return;
+    const files = shoeFiles();
+    setSaveMsg({ text: "Saving " + files[0].name + "…", kind: "" });
+    try {
+      const where = await saveFiles(files);
+      setSaveMsg({ text: "Saved " + files[0].name + " to " + where + ".", kind: "ok" });
+    } catch (e) {
+      setSaveMsg({ text: e.message || String(e), kind: "err" });
+    }
+  };
+
+  const onShare = async () => {
+    if (!result.tris) return;
+    const f = shoeFiles()[0];
+    try {
+      const where = await shareFile(f);
+      setSaveMsg(where ? { text: "Saved " + f.name + " to " + where + ".", kind: "ok" } : { text: "", kind: "" });
+    } catch (e) {
+      if (!isCancel(e)) setSaveMsg({ text: "Couldn't share: " + (e.message || e), kind: "err" });
+    }
+  };
+
+  const onSaveCard = async () => {
+    try {
+      const where = await saveFiles([
+        { name: "scale-card_100mm.stl", data: ShoeGeom.stl(ShoeGeom.card()) },
+        { name: "scale-card_notes.txt", data: CARD_NOTES },
+      ]);
+      setSaveMsg({ text: "Saved scale-card_100mm.stl to " + where + ".", kind: "ok" });
+    } catch (e) {
+      setSaveMsg({ text: e.message || String(e), kind: "err" });
+    }
+  };
+
+  const done = { scale: !!mmPerPx, outline: pts.outline.length >= 6, frog: pts.frog.length === 3 };
+  const overlay = result.shoe && mmPerPx ? { mmPerPx, shape: result.shoe.overlay } : null;
+  const dims = result.shoe ? result.shoe.dims : null;
+  const Len = ({ mm }) => {
+    const [main, other] = lengthParts(mm, unit);
+    return <b>{main}<small>{other}</small></b>;
+  };
+
+  return (
+    <div className="wrap">
+      <header>
+        <div className="titles">
+          <p className="maker">Ragamuffin Studios</p>
+          <h1>Shoe Builder</h1>
+          <p>Photo the trimmed sole with the reference card taped flat to it. Trace the wall, mark the frog, and save a print-ready shoe.</p>
+        </div>
+        <div className="units" role="group" aria-label="Units">
+          {["mm", "in"].map((u) => (
+            <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)}>{u}</button>
+          ))}
+        </div>
+      </header>
+
+      <section className="panel" aria-labelledby="h-trace">
+        <h2 id="h-trace"><span className="step">01</span>Trace the sole</h2>
+        <div className="tools">
+          <label className="btn primary file" onClick={onPhotoButton}>
+            Take or choose photo
+            <input id="photo" ref={fileInput} type="file" accept="image/*" onChange={onFile} />
+          </label>
+          <button className="btn" type="button" onClick={() => setFitKey((k) => k + 1)}>Fit view</button>
+        </div>
+        <div className="seg" role="group" aria-label="What a tap marks">
+          {MODES.map((m) => (
+            <button key={m.id} type="button" aria-pressed={mode === m.id} onClick={() => setMode(m.id)}>
+              <i className={"dot" + (done[m.id] ? " done" : "")} />{m.label}
+            </button>
+          ))}
+        </div>
+        <p className="hint">{hintFor(mode, unit)}</p>
+        <TraceBoard
+          image={image}
+          badge={badge}
+          mode={mode}
+          scalePts={pts.scalePts}
+          outline={pts.outline}
+          frog={pts.frog}
+          sel={sel}
+          overlay={overlay}
+          fitKey={fitKey}
+          onTap={onTap}
+          onDragStart={onDragStart}
+          onDrag={onDrag}
+          onDragEnd={onDragEnd}
+          onSelect={setSel}
+        />
+        {mode === "scale" && (
+          <div className="scale-row">
+            <span className="label">Reference length</span>
+            <input id="refLen" type="number" inputMode="decimal" min="1" step="0.1" value={ref.value} onChange={(e) => setRef({ ...ref, value: e.target.value })} />
+            <select id="refUnit" value={ref.unit} onChange={(e) => setRef({ ...ref, unit: e.target.value })}>
+              <option value="mm">mm</option>
+              <option value="in">in</option>
+            </select>
+            {REFERENCE_PRESETS.map((r) => (
+              <button key={r.label} className="chip" type="button" onClick={() => setRef({ value: String(r.value), unit: r.unit })}>{r.label}</button>
+            ))}
+          </div>
+        )}
+        <div className="tools">
+          <button className="btn" type="button" onClick={undo} disabled={!history.length}>Undo</button>
+          <button className="btn" type="button" onClick={removePoint} disabled={!(mode === "outline" && sel >= 0)}>Remove point</button>
+          <button className="btn" type="button" onClick={clearStep}>Clear this step</button>
+        </div>
+        {photoError && <p className="msg err">{photoError}</p>}
+      </section>
+
+      <section className="panel" aria-labelledby="h-logo">
+        <h2 id="h-logo"><span className="step">02</span>Pick the logo</h2>
+        <div className="seg choice logos" role="group" aria-label="Logo on the shoe" style={{ gridTemplateColumns: "repeat(" + LOGO_CHOICES.length + ", 1fr)" }}>
+          {LOGO_CHOICES.map((c) => (
+            <button key={c.value} type="button" aria-pressed={logoPart === c.value} onClick={() => setLogoPart(c.value)}>{c.label}</button>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel" aria-labelledby="h-out">
+        <h2 id="h-out"><span className="step">03</span>Check and save</h2>
+        <Preview3D tris={result.tris} emptyNote={missing.length ? "To build the shoe: " + missing.join(", ") + "." : ""} />
+        <div className="dims">
+          <div className="stat">{dims ? <Len mm={dims.length} /> : <b>–</b>}<span>toe to heel</span></div>
+          <div className="stat">{dims ? <Len mm={dims.width} /> : <b>–</b>}<span>widest</span></div>
+        </div>
+        {result.error && <p className="msg err">{result.error}</p>}
+        <button className="btn primary big" type="button" onClick={onSave} disabled={!result.tris}>Save shoe for printing</button>
+        <div className="tools">
+          {canShare && <button className="btn" type="button" onClick={onShare} disabled={!result.tris}>Share STL…</button>}
+          <button className="btn" type="button" onClick={onSaveCard}>Save reference card</button>
+        </div>
+        <p className={"msg" + (saveMsg.kind ? " " + saveMsg.kind : "")} role="status">{saveMsg.text}</p>
+        <div>
+          <div className="label" style={{ marginBottom: ".5rem" }}>Getting it to the Bambu from your phone</div>
+          <ol className="route">
+            <li>Save the shoe. It lands in your phone's Files or Downloads.</li>
+            <li>On <a href="https://makerworld.com" target="_blank" rel="noopener noreferrer">makerworld.com</a>, upload the STL as a private model.</li>
+            <li>In Bambu Handy, open your models, pick it, choose your TPU, and print.</li>
+          </ol>
+          <p className="fine" style={{ marginTop: ".5rem" }}>Handy slices in the cloud with stock settings. For tuned TPU settings, slice it once in Bambu Studio and attach that 3MF as the model's print profile; prints from Handy then use it.</p>
+        </div>
+      </section>
+    </div>
+  );
+}
