@@ -4,7 +4,7 @@ Ragamuffin Studios phone app: photograph a trimmed hoof sole with the 100 mm ref
 
 ## Install
 
-- **Web app (any phone):** open https://graphicsstorytelling-arch.github.io/hoof-shoe-builder/ in Safari or Chrome, then Share › Add to Home Screen. Works offline after the first visit; saved STLs go to Files › Downloads.
+- **Web app (any phone):** open https://jobot101.github.io/hoof-shoe-builder/ in Safari or Chrome, then Share › Add to Home Screen. Works offline after the first visit; saved STLs go to Files › Downloads.
 - **Android:** open the latest release on the phone, tap `HoofShoe.apk`, allow installs from the browser. New builds install over the old one.
 - **iPhone:** TestFlight, once the Apple secrets listed in `.github/workflows/ios.yml` are set.
 
