@@ -48,7 +48,7 @@ body { background: var(--bg);`);
 swap('<button class="btn primary big" id="save" type="button">Save shoe for printing (.zip)</button>\n    <button class="btn" id="saveCard" type="button">Save reference card (.zip)</button>',
   '<button class="btn primary big" id="save" type="button">Save shoe to phone (.stl)</button>\n    <div class="tools"><button class="btn" id="share" type="button">Share STL…</button><button class="btn" id="saveCard" type="button">Save reference card</button></div>');
 swap("<li>Tap the saved zip in Files to unzip it. You get the STL plus print notes.</li>\n        <li>On makerworld.com, upload the STL as a private model.</li>",
-  '<li>Save the shoe. In the app it lands in <b>Documents › HoofShoe</b>; in Safari or Chrome it goes to <b>Downloads</b> (iPhone: Files › Downloads).</li>\n        <li>On <a href="https://makerworld.com" target="_blank" rel="noopener" style="color:var(--accent)">makerworld.com</a>, upload the STL as a private model.</li>');
+  '<li>Save the shoe. In the app it lands in <b>Documents › ShoeBuilder</b>; in Safari or Chrome it goes to <b>Downloads</b> (iPhone: Files › Downloads).</li>\n        <li>On <a href="https://makerworld.com" target="_blank" rel="noopener" style="color:var(--accent)">makerworld.com</a>, upload the STL as a private model.</li>');
 
 // native hooks: replace the artifact-only download path
 swap('  var dlPromise = (window.claude && window.claude.use) ? window.claude.use("downloads").catch(function () { return null; }) : Promise.resolve(null);', "");
@@ -113,7 +113,7 @@ const head = `<!doctype html>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Hoof Shoe">
+<meta name="apple-mobile-web-app-title" content="Shoe Builder">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 `;
 t = head + t.replace("</style>", "</style>\n</head>\n<body>").replace(/\s*$/, "\n</body>\n</html>\n");

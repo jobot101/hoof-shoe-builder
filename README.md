@@ -1,11 +1,11 @@
-# Hoof Shoe Builder
+# Shoe Builder
 
 Ragamuffin Studios phone app: photograph a trimmed hoof sole with the 100 mm reference card, trace the wall and frog, and export a fitted 3D-printable shoe STL built on the house template. Android and iPhone from one Capacitor project.
 
 ## Install
 
 - **Web app (any phone):** open https://jobot101.github.io/hoof-shoe-builder/ in Safari or Chrome, then Share › Add to Home Screen. Works offline after the first visit; saved STLs go to Files › Downloads.
-- **Android:** open the latest release on the phone, tap `HoofShoe.apk`, allow installs from the browser. New builds install over the old one.
+- **Android:** open the latest release on the phone, tap `ShoeBuilder.apk`, allow installs from the browser. New builds install over the old one.
 - **iPhone:** TestFlight, once the Apple secrets listed in `.github/workflows/ios.yml` are set.
 
 ## Change the tool

@@ -12,7 +12,7 @@
   }
   async function write(dir, name, data) {
     var FS = plugin("Filesystem");
-    var r = await FS.writeFile({ path: "HoofShoe/" + name, data: b64(data), directory: dir, recursive: true });
+    var r = await FS.writeFile({ path: "ShoeBuilder/" + name, data: b64(data), directory: dir, recursive: true });
     return r.uri;
   }
   async function saveFiles(files) {
@@ -31,7 +31,7 @@
     }
     try {
       for (var i = 0; i < files.length; i++) await write("DOCUMENTS", files[i].name, files[i].data);
-      return plat === "ios" ? "Files › On My iPhone › Hoof Shoe › HoofShoe" : "Documents › HoofShoe";
+      return plat === "ios" ? "Files › On My iPhone › Shoe Builder › ShoeBuilder" : "Documents › ShoeBuilder";
     } catch (e) {
       // Older Android without public Documents access: keep a copy in app storage and hand it to the share sheet.
       var uri = await write("DATA", files[0].name, files[0].data);

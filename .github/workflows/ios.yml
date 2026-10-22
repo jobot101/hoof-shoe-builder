@@ -58,7 +58,7 @@ jobs:
         working-directory: ios/App
         run: |
           xcodebuild -project App.xcodeproj -scheme App -configuration Release \
-            -destination 'generic/platform=iOS' -archivePath $RUNNER_TEMP/HoofShoe.xcarchive \
+            -destination 'generic/platform=iOS' -archivePath $RUNNER_TEMP/ShoeBuilder.xcarchive \
             -allowProvisioningUpdates \
             -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
             -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
@@ -81,7 +81,7 @@ jobs:
             <key>manageAppVersionAndBuildNumber</key><false/>
           </dict></plist>
           PLIST
-          xcodebuild -exportArchive -archivePath $RUNNER_TEMP/HoofShoe.xcarchive \
+          xcodebuild -exportArchive -archivePath $RUNNER_TEMP/ShoeBuilder.xcarchive \
             -exportOptionsPlist $RUNNER_TEMP/export.plist -exportPath $RUNNER_TEMP/export \
             -allowProvisioningUpdates \
             -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \

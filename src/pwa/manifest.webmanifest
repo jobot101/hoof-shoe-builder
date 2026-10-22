@@ -1,6 +1,6 @@
 {
-  "name": "Hoof Shoe Builder",
-  "short_name": "Hoof Shoe",
+  "name": "Shoe Builder",
+  "short_name": "Shoe Builder",
   "description": "Trace a hoof sole from a photo and save a fitted 3D-printable shoe.",
   "start_url": "./",
   "scope": "./",

@@ -287,7 +287,7 @@ var ShoeGeom = (function () {
 
   function stl(tris) {
     var n = tris.length / 9, buf = new ArrayBuffer(84 + n * 50), dv = new DataView(buf);
-    var head = "Hoof Shoe Builder - units mm";
+    var head = "Shoe Builder - units mm";
     for (var i = 0; i < head.length; i++) dv.setUint8(i, head.charCodeAt(i));
     dv.setUint32(80, n, true);
     var o = 84;

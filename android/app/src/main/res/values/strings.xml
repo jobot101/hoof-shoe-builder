@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Hoof Shoe</string>
-    <string name="title_activity_main">Hoof Shoe</string>
+    <string name="app_name">Shoe Builder</string>
+    <string name="title_activity_main">Shoe Builder</string>
     <string name="package_name">com.ragamuffinstudios.hoofshoe</string>
     <string name="custom_url_scheme">com.ragamuffinstudios.hoofshoe</string>
 </resources>

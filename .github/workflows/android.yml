@@ -40,23 +40,23 @@ jobs:
           if [ -n "$HOOF_KEYSTORE_B64" ]; then
             echo "$HOOF_KEYSTORE_B64" | base64 -d > app/hoofshoe.keystore
             ./gradlew assembleRelease -PversionCode=${{ github.run_number }} --no-daemon
-            cp app/build/outputs/apk/release/app-release.apk ../HoofShoe.apk
+            cp app/build/outputs/apk/release/app-release.apk ../ShoeBuilder.apk
           else
             echo "::notice::No signing secret set, building a debug APK (each build needs an uninstall before updating)."
             ./gradlew assembleDebug -PversionCode=${{ github.run_number }} --no-daemon
-            cp app/build/outputs/apk/debug/app-debug.apk ../HoofShoe.apk
+            cp app/build/outputs/apk/debug/app-debug.apk ../ShoeBuilder.apk
           fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: HoofShoe-apk
-          path: HoofShoe.apk
+          name: ShoeBuilder-apk
+          path: ShoeBuilder.apk
 
       - name: Publish release for phone download
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-v1.0.${{ github.run_number }}
-          name: Hoof Shoe Android 1.0.${{ github.run_number }}
-          body: Open this page on the phone and tap HoofShoe.apk to install.
-          files: HoofShoe.apk
+          name: Shoe Builder Android 1.0.${{ github.run_number }}
+          body: Open this page on the phone and tap ShoeBuilder.apk to install.
+          files: ShoeBuilder.apk
           make_latest: true
