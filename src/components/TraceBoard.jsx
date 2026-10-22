@@ -9,11 +9,11 @@ const css = (name) => getComputedStyle(document.documentElement).getPropertyValu
  * The photo with the traced points. Tap to place, drag a point to move it,
  * pinch (or wheel) to zoom in on the spot between your fingers. No panning.
  */
-export default function TraceBoard({ image, badge, mode, scalePts, outline, frog, sel, overlay, fitKey, onTap, onDragStart, onDrag, onDragEnd, onSelect }) {
+export default function TraceBoard({ image, badge, mode, scalePts, scaleLabel = "100", outline, frog, sel, overlay, fitKey, onTap, onDragStart, onDrag, onDragEnd, onSelect }) {
   const canvasRef = useRef(null);
   const view = useRef({ k: 1, ox: 0, oy: 0 });
   const props = useRef({});
-  props.current = { image, mode, scalePts, outline, frog, sel, overlay, onTap, onDragStart, onDrag, onDragEnd, onSelect };
+  props.current = { image, mode, scaleLabel, scalePts, outline, frog, sel, overlay, onTap, onDragStart, onDrag, onDragEnd, onSelect };
 
   const toScreen = (p) => [p[0] * view.current.k + view.current.ox, p[1] * view.current.k + view.current.oy];
   const toImg = (x, y) => [(x - view.current.ox) / view.current.k, (y - view.current.oy) / view.current.k];
@@ -24,7 +24,7 @@ export default function TraceBoard({ image, badge, mode, scalePts, outline, frog
     const ctx = cv.getContext("2d");
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     const w = cv.width / dpr, h = cv.height / dpr;
-    const { image, mode, scalePts, outline, frog, sel, overlay } = props.current;
+    const { image, mode, scaleLabel, scalePts, outline, frog, sel, overlay } = props.current;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = css("--board") || "#1A1612";
     ctx.fillRect(0, 0, w, h);
@@ -80,7 +80,7 @@ export default function TraceBoard({ image, badge, mode, scalePts, outline, frog
       ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
       ctx.lineWidth = 3; ctx.strokeStyle = "#3fd0ff"; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
     }
-    scalePts.forEach((p, i) => handle(p, "#3fd0ff", i ? "100" : "0", mode === "scale", false, !i));
+    scalePts.forEach((p, i) => handle(p, "#3fd0ff", i ? scaleLabel : "0", mode === "scale", false, !i));
     const names = ["frog tip", "heel A", "heel B"];
     frog.forEach((p, i) => {
       const other = i === 1 ? frog[2] : frog[1];

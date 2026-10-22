@@ -18,7 +18,7 @@ export const LOGO_CHOICES = [
 ];
 
 export const REFERENCE_PRESETS = [
-  { label: "stick 100 mm", value: 100, unit: "mm" },
-  { label: "4 in", value: 4, unit: "in" },
+  { label: "mm edge 100", value: 100, unit: "mm" },
+  { label: "inch edge 4", value: 4, unit: "in" },
   { label: "credit card", value: 85.6, unit: "mm" },
 ];

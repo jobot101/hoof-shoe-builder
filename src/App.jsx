@@ -24,7 +24,7 @@ function remember(key, value) {
 }
 
 function hintFor(mode, unit) {
-  if (mode === "scale") return "Tap the 0 and 100 mm slots on the scale stick, then check the length below. The stick has to lie flat against the sole.";
+  if (mode === "scale") return unit === "in" ? "Tap the 0 and 4 slots on the inch edge of the scale stick. The stick has to lie flat against the sole." : "Tap the 0 and 100 slots on the mm edge of the scale stick. The stick has to lie flat against the sole.";
   if (mode === "frog") return "Tap the frog tip, then each spot where the frog meets the heel. Those three points set the V cut.";
   return "Tap around the outside edge of the hoof wall, about every " + (unit === "in" ? "¾–1¼ in" : "20–30 mm") + ". A tap between two points slots in there. Drag any point to adjust.";
 }
@@ -58,8 +58,11 @@ function printNotes(name, shoe, unit) {
   ].join("\n");
 }
 
+const REF_DEFAULT = { mm: { value: "100", unit: "mm" }, in: { value: "4", unit: "in" } };
+
 const STICK_NOTES =
-  "Scale stick, 116 x 26 x 1.2 mm.\nSlots at 0 and 100 mm (3.937 in), ticks every 10 mm.\n" +
+  "Scale stick, 124 x 34 x 1.6 mm (4.88 x 1.34 x 0.063 in), raised numbers 0.6 mm.\n" +
+  "Top edge: mm scale, 0-100, ticks every 5 mm. Bottom edge: inch scale, 0-4, ticks every 1/4 in.\n" +
   "Print flat in a color that contrasts with the hoof (orange or white PLA/PETG), 0.2 mm layers, no supports. About 10 minutes.\n" +
   "Tape it flat to the sole near the bearing edge, then tap the 0 and 100 slots in the Scale step.\n" +
   "Print it once and reuse it for every horse.";
@@ -72,13 +75,14 @@ export default function App() {
   const [pts, setPts] = useState({ scalePts: [], outline: [], frog: [] });
   const [sel, setSel] = useState(-1);
   const [history, setHistory] = useState([]);
-  const [ref, setRef] = useState({ value: "100", unit: "mm" });
+  const [ref, setRef] = useState(() => REF_DEFAULT[remember("hsb-unit") === "in" ? "in" : "mm"]);
   const [logoPart, setLogoPart] = useState(0);
   const [fitKey, setFitKey] = useState(0);
   const [result, setResult] = useState({ shoe: null, tris: null, error: "" });
   const [photoError, setPhotoError] = useState("");
   const [saveMsg, setSaveMsg] = useState({ text: "", kind: "" });
   const dragging = useRef(false);
+  const sampleRef = useRef(null);
   const fileInput = useRef(null);
 
   // open on the drawn sample sole so the tool shows what it does
@@ -86,7 +90,8 @@ export default function App() {
     const s = makeSampleSole();
     loadImage(s.src).then((img) => {
       setImage(img);
-      setPts({ scalePts: s.scalePts, outline: s.outline, frog: s.frog });
+      setPts({ scalePts: unit === "in" ? s.scaleIN : s.scaleMM, outline: s.outline, frog: s.frog });
+      sampleRef.current = s;
     });
   }, []);
 
@@ -140,10 +145,12 @@ export default function App() {
 
   const setMode = (m) => { setModeState(m); setSel(-1); };
 
+  // the unit picks which edge of the scale stick you tap: mm edge 0-100 or inch edge 0-4
   const setUnit = (u) => {
-    if (u !== ref.unit) {
-      const v = parseFloat(ref.value);
-      setRef({ value: v > 0 ? String(u === "in" ? +(v / MM_PER_IN).toFixed(3) : +(v * MM_PER_IN).toFixed(1)) : ref.value, unit: u });
+    if (u === unit) return;
+    setRef(REF_DEFAULT[u]);
+    if (badge === "SAMPLE HOOF" && sampleRef.current) {
+      setPts((cur) => ({ ...cur, scalePts: u === "in" ? sampleRef.current.scaleIN : sampleRef.current.scaleMM }));
     }
     setUnitState(u);
     remember("hsb-unit", u);
@@ -312,7 +319,7 @@ export default function App() {
       <section className="panel" aria-labelledby="h-stick">
         <h2 id="h-stick"><span className="step">01</span>Print the scale stick</h2>
         <p className="fine">You only need one. Print it, tape it flat to the sole for each photo, and the app reads the real size from it.</p>
-        <Preview3D tris={stickTris} compact tilt={-0.75} note="0 and 100 mm slots · 116 × 26 mm stick" />
+        <Preview3D tris={stickTris} compact tilt={-0.32} spin={0} note="mm edge 0–100 · inch edge 0–4 · 124 × 34 mm" />
         <button className="btn primary big" type="button" onClick={onSaveStick}>Save scale stick for printing</button>
         <p className={"msg" + (stickMsg.kind ? " " + stickMsg.kind : "")} role="status">{stickMsg.text}</p>
       </section>
@@ -339,6 +346,7 @@ export default function App() {
           badge={badge}
           mode={mode}
           scalePts={pts.scalePts}
+          scaleLabel={ref.value + (ref.unit === "in" ? " in" : "")}
           outline={pts.outline}
           frog={pts.frog}
           sel={sel}

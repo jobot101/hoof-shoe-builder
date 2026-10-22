@@ -337,19 +337,74 @@ var ShoeGeom = (function () {
     return out;
   }
 
-  // Printable scale reference: 116 x 26 x 1.2 mm card, ticks cut through every 10 mm,
-  // long slots at 0 and 100 mm. Tape to the sole; the slots show the dark sole behind.
-  function card() {
-    var W = 116, H = 26, x0 = -58, y0 = -13;
-    var body = [toC([[x0, y0], [x0 + W, y0], [x0 + W, y0 + H], [x0, y0 + H]])];
-    var cuts = [];
-    for (var i = 0; i <= 10; i++) {
-      var x = -50 + i * 10, major = (i === 0 || i === 10), w = major ? 1.0 : 0.8, h = major ? 16 : 7;
-      var yb = y0 + 3;
-      cuts.push(toC([[x - w / 2, yb], [x + w / 2, yb], [x + w / 2, yb + h], [x - w / 2, yb + h]]));
+  // Stroke font for the scale stick: glyphs on a 4 x 6 grid, y down.
+  var GLYPHS = {
+    "0": [[[0, 0], [4, 0], [4, 6], [0, 6], [0, 0]]],
+    "1": [[[1, 1], [2, 0], [2, 6]], [[1, 6], [3, 6]]],
+    "2": [[[0, 0], [4, 0], [4, 3], [0, 3], [0, 6], [4, 6]]],
+    "3": [[[0, 0], [4, 0], [4, 6], [0, 6]], [[1, 3], [4, 3]]],
+    "4": [[[3, 6], [3, 0], [0, 4], [4, 4]]],
+    "5": [[[4, 0], [0, 0], [0, 3], [4, 3], [4, 6], [0, 6]]],
+    "6": [[[4, 0], [0, 0], [0, 6], [4, 6], [4, 3], [0, 3]]],
+    "7": [[[0, 0], [4, 0], [1.5, 6]]],
+    "8": [[[0, 0], [4, 0], [4, 6], [0, 6], [0, 0]], [[0, 3], [4, 3]]],
+    "9": [[[4, 3], [0, 3], [0, 0], [4, 0], [4, 6], [0, 6]]],
+    "m": [[[0, 6], [0, 2], [4, 2], [4, 6]], [[2, 2], [2, 6]]],
+    "i": [[[2, 2.4], [2, 6]], [[2, 0.4], [2, 0.6]]],
+    "n": [[[0, 6], [0, 2], [4, 2], [4, 6]]]
+  };
+  function textWidth(str, h) { return (str.length * 5.6 - 1.6) * h / 6; }
+  // Returns Clipper paths for str with its top-left at (x, y), cap height h (mm).
+  function strokeText(str, x, y, h, stroke) {
+    var k = h / 6, lines = [];
+    for (var i = 0; i < str.length; i++) {
+      (GLYPHS[str[i]] || []).forEach(function (pl) {
+        lines.push(toC(pl.map(function (q) { return [x + (q[0] + i * 5.6) * k, y + q[1] * k]; })));
+      });
     }
-    var paths = diff(body, cuts);
-    return mesh({ u: [0, -1], v: [1, 0], center: [0, 0], layers: [{ paths: paths, z0: 0, z1: 1.2 }] }, false);
+    var co = new (C().ClipperOffset)(2, 0.02 * SC);
+    co.AddPaths(lines, C().JoinType.jtRound, C().EndType.etOpenRound);
+    var out = new (C().Paths)();
+    co.Execute(out, (stroke / 2) * SC);
+    return out;
+  }
+
+  // Scale stick: 124 x 34 x 1.6 mm. mm scale on the top edge (0-100, ticks every 5),
+  // inch scale on the bottom edge (0-4, ticks every 1/4). Ticks are cut through so the
+  // dark sole shows behind them; numbers stand 0.6 mm proud.
+  function card() {
+    var W = 124, H = 34, xl = -W / 2, yt = -H / 2, X0 = -54, T = 1.6, TXT = 0.6;
+    var body = [toC([[xl, yt], [xl + W, yt], [xl + W, yt + H], [xl, yt + H]])];
+    var cuts = [], labels = [];
+    var slot = function (x, ya, yb, w) { cuts.push(toC([[x - w / 2, ya], [x + w / 2, ya], [x + w / 2, yb], [x - w / 2, yb]])); };
+    var label = function (str, x, y, rightAlign) {
+      var h = 4, tw = textWidth(str, h);
+      labels = labels.concat(strokeText(str, rightAlign ? x - tw : x, y, h, 0.7));
+    };
+    // mm edge (top)
+    for (var mm = 0; mm <= 100; mm += 5) {
+      var x = X0 + mm, end = mm === 0 || mm === 100;
+      var len = end ? 12 : mm === 50 ? 9 : mm % 10 === 0 ? 7 : 4;
+      slot(x, yt + 1.5, yt + 1.5 + len, end ? 1.0 : 0.7);
+    }
+    label("0", X0 + 1.4, -7.6);
+    label("50", X0 + 50 + 1.4, -7.6);
+    label("100", X0 + 100 - 1.4, -7.6, true);
+    label("mm", X0 + 100 + 1.6, -7.6);
+    // inch edge (bottom)
+    for (var q = 0; q <= 16; q++) {
+      var xi = X0 + q * 25.4 / 4, whole = q % 4 === 0, endI = q === 0 || q === 16;
+      var li = endI ? 12 : whole ? 9 : q % 2 === 0 ? 6 : 3.5;
+      slot(xi, yt + H - 1.5 - li, yt + H - 1.5, endI ? 1.0 : 0.7);
+    }
+    for (var n = 0; n <= 4; n++) label(String(n), X0 + n * 25.4 + 1.4, 3.6);
+    label("in", X0 + 4 * 25.4 + 1.4 + textWidth("4", 4) + 1.6, 3.6);
+    var plate = diff(body, cuts);
+    var raised = inter(uni(labels), offset(plate, -0.3));
+    return mesh({ u: [0, -1], v: [1, 0], center: [0, 0], layers: [
+      { paths: plate, z0: 0, z1: T },
+      { paths: raised, z0: T - 0.2, z1: T + TXT }
+    ] }, false);
   }
 
   return { build: build, mesh: mesh, stl: stl, zip: zip, catmull: catmull, card: card, LOGO: LOGO };
