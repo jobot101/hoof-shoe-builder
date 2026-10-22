@@ -103,3 +103,4 @@ html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; -webkit-tap-highlight-color: transparent; }
 .route a { color: var(--accent); }
 .view3d.compact { height: 9rem; }
+.ruler-note { flex-basis: 100%; }

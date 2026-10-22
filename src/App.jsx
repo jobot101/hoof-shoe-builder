@@ -369,6 +369,9 @@ export default function App() {
             {REFERENCE_PRESETS.map((r) => (
               <button key={r.label} className="chip" type="button" onClick={() => setRef({ value: String(r.value), unit: r.unit })}>{r.label}</button>
             ))}
+            <p className="fine ruler-note">
+              No scale stick? A regular ruler works. Lay it flat across the hoof wall at heel height, tap two marks at least {unit === "in" ? "4 in (100 mm)" : "100 mm (4 in)"} apart, and type the distance between them above.
+            </p>
           </div>
         )}
         <div className="tools">
