@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
 /** Brass 3D preview of the shoe. Drag sideways to spin. */
-export default function Preview3D({ tris, emptyNote }) {
+export default function Preview3D({ tris, emptyNote, note = "drag sideways to spin · top face goes against the hoof", compact = false, tilt = -1.05 }) {
   const canvasRef = useRef(null);
   const ctx = useRef(null);
 
@@ -17,8 +17,8 @@ export default function Preview3D({ tris, emptyNote }) {
     scene.add(light);
     const group = new THREE.Group();
     scene.add(group);
-    const state = { renderer, scene, cam, group, mesh: null, spin: -0.5 };
-    const render = () => { group.rotation.set(-1.05, 0, state.spin); renderer.render(scene, cam); };
+    const state = { renderer, scene, cam, group, mesh: null, spin: -0.5, tilt };
+    const render = () => { group.rotation.set(state.tilt, 0, state.spin); renderer.render(scene, cam); };
     const size = () => {
       const r = c.getBoundingClientRect();
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -64,17 +64,17 @@ export default function Preview3D({ tris, emptyNote }) {
       s.mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: new THREE.Color("#C9A048"), roughness: 0.55, metalness: 0 }));
       s.group.add(s.mesh);
       geo.computeBoundingSphere();
-      s.cam.position.set(0, 0, geo.boundingSphere.radius * 4.1);
+      s.cam.position.set(0, 0, geo.boundingSphere.radius * (compact ? 3.2 : 4.1));
       s.cam.lookAt(0, 0, 0);
     }
     s.size();
   }, [tris]);
 
   return (
-    <div className="view3d">
-      <canvas id="view3d" ref={canvasRef} aria-label="3D preview, drag sideways to spin" />
+    <div className={"view3d" + (compact ? " compact" : "")}>
+      <canvas ref={canvasRef} aria-label="3D preview, drag sideways to spin" />
       {!tris && <div className="empty3d">{emptyNote}</div>}
-      <div className="note">drag sideways to spin · top face goes against the hoof</div>
+      {note && <div className="note">{note}</div>}
     </div>
   );
 }

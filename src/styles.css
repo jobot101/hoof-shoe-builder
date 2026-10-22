@@ -82,7 +82,7 @@ details.group[open] summary::after { content: "–"; }
 .toggle input { width: 1.4rem; height: 1.4rem; accent-color: var(--accent); flex: none; }
 
 .view3d { position: relative; height: 18.75rem; border-radius: .5rem; background: var(--sunk); overflow: hidden; }
-#view3d { display: block; width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
+.view3d canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
 .view3d .note { position: absolute; left: .625rem; bottom: .5rem; font-size: .75rem; color: var(--muted); pointer-events: none; }
 .empty3d { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); text-align: center; padding: 1.25rem; }
 
@@ -102,3 +102,4 @@ ol.route li::marker { font-family: var(--mono); color: var(--accent); }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; -webkit-tap-highlight-color: transparent; }
 .route a { color: var(--accent); }
+.view3d.compact { height: 9rem; }

@@ -24,7 +24,7 @@ function remember(key, value) {
 }
 
 function hintFor(mode, unit) {
-  if (mode === "scale") return "Tap the 0 and 100 mm slots on the reference card, then check the length below. The card has to lie flat against the sole.";
+  if (mode === "scale") return "Tap the 0 and 100 mm slots on the scale stick, then check the length below. The stick has to lie flat against the sole.";
   if (mode === "frog") return "Tap the frog tip, then each spot where the frog meets the heel. Those three points set the V cut.";
   return "Tap around the outside edge of the hoof wall, about every " + (unit === "in" ? "¾–1¼ in" : "20–30 mm") + ". A tap between two points slots in there. Drag any point to adjust.";
 }
@@ -58,10 +58,11 @@ function printNotes(name, shoe, unit) {
   ].join("\n");
 }
 
-const CARD_NOTES =
-  "Scale reference card, 116 x 26 x 1.2 mm.\nSlots at 0 and 100 mm (3.937 in), ticks every 10 mm.\n" +
-  "Print in a color that contrasts with the hoof. PLA or PETG, 0.2 mm layers.\n" +
-  "Tape it flat to the sole near the bearing edge, then tap the 0 and 100 slots in the Scale step.";
+const STICK_NOTES =
+  "Scale stick, 116 x 26 x 1.2 mm.\nSlots at 0 and 100 mm (3.937 in), ticks every 10 mm.\n" +
+  "Print flat in a color that contrasts with the hoof (orange or white PLA/PETG), 0.2 mm layers, no supports. About 10 minutes.\n" +
+  "Tape it flat to the sole near the bearing edge, then tap the 0 and 100 slots in the Scale step.\n" +
+  "Print it once and reuse it for every horse.";
 
 export default function App() {
   const [unit, setUnitState] = useState(() => (remember("hsb-unit") === "in" ? "in" : "mm"));
@@ -104,7 +105,7 @@ export default function App() {
 
   const missing = useMemo(() => {
     const m = [];
-    if (!mmPerPx) m.push("set the scale (2 points on the reference)");
+    if (!mmPerPx) m.push("set the scale (2 points on the scale stick)");
     if (pts.outline.length < 6) m.push("trace at least 6 outline points");
     if (pts.frog.length < 3) m.push("mark the frog tip and both heels");
     return m;
@@ -270,15 +271,18 @@ export default function App() {
     }
   };
 
-  const onSaveCard = async () => {
+  const stickTris = useMemo(() => ShoeGeom.card(), []);
+  const [stickMsg, setStickMsg] = useState({ text: "", kind: "" });
+  const onSaveStick = async () => {
+    setStickMsg({ text: "Saving scale-stick_100mm.stl…", kind: "" });
     try {
       const where = await saveFiles([
-        { name: "scale-card_100mm.stl", data: ShoeGeom.stl(ShoeGeom.card()) },
-        { name: "scale-card_notes.txt", data: CARD_NOTES },
+        { name: "scale-stick_100mm.stl", data: ShoeGeom.stl(stickTris) },
+        { name: "scale-stick_notes.txt", data: STICK_NOTES },
       ]);
-      setSaveMsg({ text: "Saved scale-card_100mm.stl to " + where + ".", kind: "ok" });
+      setStickMsg({ text: "Saved scale-stick_100mm.stl to " + where + ". Print it the same way as a shoe.", kind: "ok" });
     } catch (e) {
-      setSaveMsg({ text: e.message || String(e), kind: "err" });
+      setStickMsg({ text: e.message || String(e), kind: "err" });
     }
   };
 
@@ -296,7 +300,7 @@ export default function App() {
         <div className="titles">
           <p className="maker">Ragamuffin Studios</p>
           <h1>Shoe Builder</h1>
-          <p>Photo the trimmed sole with the reference card taped flat to it. Trace the wall, mark the frog, and save a print-ready shoe.</p>
+          <p>Photo the trimmed sole with the scale stick taped flat to it. Trace the wall, mark the frog, and save a print-ready shoe.</p>
         </div>
         <div className="units" role="group" aria-label="Units">
           {["mm", "in"].map((u) => (
@@ -305,8 +309,16 @@ export default function App() {
         </div>
       </header>
 
+      <section className="panel" aria-labelledby="h-stick">
+        <h2 id="h-stick"><span className="step">01</span>Print the scale stick</h2>
+        <p className="fine">You only need one. Print it, tape it flat to the sole for each photo, and the app reads the real size from it.</p>
+        <Preview3D tris={stickTris} compact tilt={-0.75} note="0 and 100 mm slots · 116 × 26 mm stick" />
+        <button className="btn primary big" type="button" onClick={onSaveStick}>Save scale stick for printing</button>
+        <p className={"msg" + (stickMsg.kind ? " " + stickMsg.kind : "")} role="status">{stickMsg.text}</p>
+      </section>
+
       <section className="panel" aria-labelledby="h-trace">
-        <h2 id="h-trace"><span className="step">01</span>Trace the sole</h2>
+        <h2 id="h-trace"><span className="step">02</span>Trace the sole</h2>
         <div className="tools">
           <label className="btn primary file" onClick={onPhotoButton}>
             Take or choose photo
@@ -360,7 +372,7 @@ export default function App() {
       </section>
 
       <section className="panel" aria-labelledby="h-logo">
-        <h2 id="h-logo"><span className="step">02</span>Pick the logo</h2>
+        <h2 id="h-logo"><span className="step">03</span>Pick the logo</h2>
         <div className="seg choice logos" role="group" aria-label="Logo on the shoe" style={{ gridTemplateColumns: "repeat(" + LOGO_CHOICES.length + ", 1fr)" }}>
           {LOGO_CHOICES.map((c) => (
             <button key={c.value} type="button" aria-pressed={logoPart === c.value} onClick={() => setLogoPart(c.value)}>{c.label}</button>
@@ -369,7 +381,7 @@ export default function App() {
       </section>
 
       <section className="panel" aria-labelledby="h-out">
-        <h2 id="h-out"><span className="step">03</span>Check and save</h2>
+        <h2 id="h-out"><span className="step">04</span>Check and save</h2>
         <Preview3D tris={result.tris} emptyNote={missing.length ? "To build the shoe: " + missing.join(", ") + "." : ""} />
         <div className="dims">
           <div className="stat">{dims ? <Len mm={dims.length} /> : <b>–</b>}<span>toe to heel</span></div>
@@ -377,10 +389,7 @@ export default function App() {
         </div>
         {result.error && <p className="msg err">{result.error}</p>}
         <button className="btn primary big" type="button" onClick={onSave} disabled={!result.tris}>Save shoe for printing</button>
-        <div className="tools">
-          {canShare && <button className="btn" type="button" onClick={onShare} disabled={!result.tris}>Share STL…</button>}
-          <button className="btn" type="button" onClick={onSaveCard}>Save reference card</button>
-        </div>
+        {canShare && <div className="tools"><button className="btn" type="button" onClick={onShare} disabled={!result.tris}>Share STL…</button></div>}
         <p className={"msg" + (saveMsg.kind ? " " + saveMsg.kind : "")} role="status">{saveMsg.text}</p>
         <div>
           <div className="label" style={{ marginBottom: ".5rem" }}>Getting it to the Bambu from your phone</div>
