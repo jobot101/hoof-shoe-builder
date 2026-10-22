@@ -30,6 +30,20 @@ function hintFor(mode, unit) {
   return "Tap around the outside edge of the hoof wall, about every " + (unit === "in" ? "¾–1¼ in" : "20–30 mm") + ". A tap between two points slots in there. Drag any point to adjust.";
 }
 
+// Phone photos can be 48 MP; Safari on iPhone can run out of memory drawing those.
+// Shrink to 2600 px on the long side (still ~0.2 mm per pixel across a hoof).
+const MAX_PHOTO_PX = 2600;
+async function shrinkPhoto(img) {
+  const big = Math.max(img.naturalWidth, img.naturalHeight);
+  if (big <= MAX_PHOTO_PX) return img;
+  const k = MAX_PHOTO_PX / big;
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.naturalWidth * k);
+  c.height = Math.round(img.naturalHeight * k);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return loadImage(c.toDataURL("image/jpeg", 0.9));
+}
+
 function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -241,7 +255,7 @@ export default function App() {
 
   const startNewPhoto = async (src, label) => {
     try {
-      const img = await loadImage(src);
+      const img = await shrinkPhoto(await loadImage(src));
       setImage(img);
       setBadge(label.slice(0, 28).toUpperCase());
       setPts({ scalePts: [], outline: [], frog: [] });

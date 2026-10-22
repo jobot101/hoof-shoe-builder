@@ -196,12 +196,20 @@ export default function TraceBoard({ image, badge, mode, scalePts, scaleLabel = 
     cv.addEventListener("pointerup", up);
     cv.addEventListener("pointercancel", cancel);
     cv.addEventListener("wheel", wheel, { passive: false });
+    // Safari on iPhone: keep its own page pinch-zoom off the photo so ours gets the gesture
+    const noGesture = (e) => e.preventDefault();
+    cv.addEventListener("gesturestart", noGesture);
+    cv.addEventListener("gesturechange", noGesture);
+    cv.addEventListener("touchmove", noGesture, { passive: false });
     return () => {
       cv.removeEventListener("pointerdown", down);
       cv.removeEventListener("pointermove", move);
       cv.removeEventListener("pointerup", up);
       cv.removeEventListener("pointercancel", cancel);
       cv.removeEventListener("wheel", wheel);
+      cv.removeEventListener("gesturestart", noGesture);
+      cv.removeEventListener("gesturechange", noGesture);
+      cv.removeEventListener("touchmove", noGesture);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
