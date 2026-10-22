@@ -6,7 +6,7 @@ const files = [];
   for (const f of fs.readdirSync(d)) {
     const full = path.join(d, f), r = rel ? rel + "/" + f : f;
     if (fs.statSync(full).isDirectory()) walk(full, r);
-    else if (f !== "sw.js") files.push(r);
+    else if (f !== "sw.js" && fs.statSync(full).size < 2e6) files.push(r); // big files (OpenCV) cache on first use
   }
 })(www, "");
 const hash = crypto.createHash("sha1");
@@ -16,6 +16,12 @@ fs.writeFileSync(path.join(www, "sw.js"), `const CACHE = "shoebuilder-${version}
 const FILES = ${JSON.stringify(["./"].concat(files))};
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
-self.addEventListener("fetch", e => { if (e.request.method !== "GET") return; e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(r => r || fetch(e.request))); });
+self.addEventListener("fetch", e => {
+  if (e.request.method !== "GET" || !e.request.url.startsWith(self.location.origin)) return;
+  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(r => r || fetch(e.request).then(res => {
+    if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
+    return res;
+  })));
+});
 `);
 console.log("sw.js:", files.length, "files, cache", version);

@@ -4,6 +4,7 @@ import { TEMPLATE, LOGO_CHOICES, REFERENCE_PRESETS } from "./lib/template.js";
 import { MM_PER_IN, lengthParts, lengthText } from "./lib/units.js";
 import { makeSampleSole } from "./lib/sample.js";
 import { saveFiles, shareFile, canShare, usesNativePicker, pickPhotoNative, isCancel } from "./lib/platform.js";
+import { autoTrace, loadOpenCV } from "./lib/autoTrace.js";
 import TraceBoard from "./components/TraceBoard.jsx";
 import Preview3D from "./components/Preview3D.jsx";
 
@@ -83,6 +84,7 @@ export default function App() {
   const [saveMsg, setSaveMsg] = useState({ text: "", kind: "" });
   const dragging = useRef(false);
   const sampleRef = useRef(null);
+  const [auto, setAuto] = useState({ armed: false, busy: false, text: "", kind: "" });
   const fileInput = useRef(null);
 
   // open on the drawn sample sole so the tool shows what it does
@@ -162,13 +164,36 @@ export default function App() {
     return b;
   };
 
+  const runAutoTrace = async (seed) => {
+    setAuto({ armed: false, busy: true, text: "Finding the hoof edge…", kind: "" });
+    try {
+      const r = await autoTrace(image, seed, mmPerPx, pts.scalePts);
+      snapshot();
+      const keepFrog = pts.frog.length === 3 && badge === "SAMPLE HOOF";
+      setPts({ ...pts, outline: r.outline, frog: keepFrog ? pts.frog : r.frog });
+      setSel(-1);
+      setAuto({ armed: false, busy: false, kind: "ok",
+        text: "Traced. Drag any point that's off the wall" + (keepFrog ? "." : ", then check the frog points in the Frog step (they're a first guess, toe at the top).") });
+    } catch (e) {
+      setAuto({ armed: false, busy: false, kind: "err", text: e.message || String(e) });
+    }
+  };
+
+  const armAutoTrace = () => {
+    setMode("outline");
+    setAuto({ armed: true, busy: false, text: "Tap the middle of the hoof sole.", kind: "" });
+    loadOpenCV().catch(() => {});
+  };
+
   const onTap = (p) => {
+    if (auto.armed) { runAutoTrace(p); return; }
     snapshot();
     const cur = pts;
     if (mode === "scale") {
       const s = cur.scalePts.slice();
       if (s.length < 2) s.push(p); else s[nearest(s, p)] = p;
       setPts({ ...cur, scalePts: s });
+      if (s.length === 2 && cur.scalePts.length === 1 && !cur.outline.length) setMode("outline"); // next: auto trace
       return;
     }
     if (mode === "frog") {
@@ -223,6 +248,7 @@ export default function App() {
       setHistory([]);
       setSel(-1);
       setPhotoError("");
+      setAuto({ armed: false, busy: false, text: "", kind: "" });
       setMode("scale");
     } catch (e) {
       setPhotoError(e.message);
@@ -340,7 +366,7 @@ export default function App() {
             </button>
           ))}
         </div>
-        <p className="hint">{hintFor(mode, unit)}</p>
+        <p className="hint">{auto.armed ? "Tap the middle of the hoof sole. The app finds the wall and places the outline points for you." : hintFor(mode, unit)}</p>
         <TraceBoard
           image={image}
           badge={badge}
@@ -374,6 +400,12 @@ export default function App() {
             </p>
           </div>
         )}
+        {mode === "outline" && (
+          <button className="btn primary big" type="button" onClick={armAutoTrace} disabled={auto.busy || !image}>
+            {auto.busy ? "Tracing…" : auto.armed ? "Now tap the hoof" : "Auto trace the outline"}
+          </button>
+        )}
+        {auto.text && <p className={"msg" + (auto.kind ? " " + auto.kind : "")} role="status">{auto.text}</p>}
         <div className="tools">
           <button className="btn" type="button" onClick={undo} disabled={!history.length}>Undo</button>
           <button className="btn" type="button" onClick={removePoint} disabled={!(mode === "outline" && sel >= 0)}>Remove point</button>
